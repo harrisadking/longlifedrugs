@@ -1,0 +1,57 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    function isAdmin() {
+      return signedIn()
+        && exists(/databases/$(database)/documents/user_roles/$(request.auth.uid))
+        && get(/databases/$(database)/documents/user_roles/$(request.auth.uid)).data.role == 'admin';
+    }
+
+    match /catalog/{catalogId} {
+      allow read: if catalogId == 'current';
+      allow create, update, delete: if catalogId == 'current' && isAdmin();
+    }
+
+    match /orders/{orderId} {
+      allow read, update, delete: if isAdmin();
+      allow create: if isAdmin() || (
+        request.resource.data.keys().hasOnly([
+          'id', 'createdAt', 'customer', 'phone', 'address', 'summary', 'total', 'status', 'source'
+        ])
+        && request.resource.data.id == orderId
+        && request.resource.data.createdAt is string
+        && request.resource.data.customer is string
+        && request.resource.data.customer.size() <= 120
+        && request.resource.data.phone is string
+        && request.resource.data.phone.size() <= 40
+        && request.resource.data.address is string
+        && request.resource.data.address.size() <= 500
+        && request.resource.data.summary is string
+        && request.resource.data.summary.size() <= 4000
+        && request.resource.data.total is number
+        && request.resource.data.total >= 0
+        && request.resource.data.status == 'New'
+        && request.resource.data.source == 'website'
+      );
+    }
+
+    match /profiles/{userId} {
+      allow read: if isAdmin() || (signedIn() && request.auth.uid == userId);
+      allow create, update: if (isAdmin() || (signedIn() && request.auth.uid == userId))
+        && request.resource.data.keys().hasOnly(['email', 'displayName', 'updatedAt'])
+        && request.resource.data.email is string
+        && request.resource.data.displayName is string
+        && request.resource.data.displayName.size() <= 80;
+      allow delete: if isAdmin();
+    }
+
+    match /user_roles/{userId} {
+      allow read: if isAdmin() || (signedIn() && request.auth.uid == userId);
+      allow write: if isAdmin();
+    }
+  }
+}

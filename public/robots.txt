@@ -1,0 +1,9 @@
+# Long Life - crawler rules
+User-agent: *
+Allow: /
+Disallow: /admin
+Disallow: /cart
+
+# Once your final domain is live, uncomment and edit the line below:
+# Sitemap: https://YOUR-DOMAIN/sitemap.xml
+# (The sitemap itself is served automatically at /sitemap.xml)
